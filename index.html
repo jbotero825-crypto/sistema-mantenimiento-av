@@ -429,13 +429,7 @@ function guardarConexion(url,key){
 function cache(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ MEM=DB; } }
 function leerCache(){ try{ const r=localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){} return MEM; }
 
-/* Prerrequisitos generales de seguridad: aplican a CUALQUIER equipo/actividad preventiva,
-   se guardan en DB.config.prereqPM (separados por ';', igual que las tareas de un plan) y
-   se copian solos en cada OT preventiva que se genere (ver textoPrereq() y _crearOTDePlan). */
-const PREREQ_PM_DEFECTO='Bloqueo e inspección del equipo — confirmar que esté apagado y sin energía residual antes de intervenir;'+
-  'Uso de EPP completo según el riesgo de la tarea;Señalización y delimitación del área de trabajo;'+
-  'Notificar al operador del área y verificar permiso de trabajo si la tarea lo requiere;Dejar el área limpia y ordenada al terminar';
-const vacio=()=>({config:{empresa:'',area:'',responsable:'',horasTurno:16,diasMes:26,moneda:'MXN',anio:new Date().getFullYear(),inicioKPI:'2026-09-01',prereqPM:PREREQ_PM_DEFECTO},
+const vacio=()=>({config:{empresa:'',area:'',responsable:'',horasTurno:16,diasMes:26,moneda:'MXN',anio:new Date().getFullYear(),inicioKPI:'2026-09-01'},
   areas:[],tecnicos:[],politica:'',version:4,
   activos:[],planes:[],ots:[],bitacora:[],indeci:[],checklists:[],inspecciones:[],
   objetivos:[],organigrama:[],flujo:[],presupuesto:[],usuarios:[],
@@ -460,7 +454,7 @@ async function cargarTodo(){
     base.areas=c.areas||[]; base.tecnicos=c.tecnicos||[]; base.politica=c.politica||'';
     base.config={empresa:c.empresa||'',area:c.area||'',responsable:c.responsable||'',
       horasTurno:c.horasTurno||16,diasMes:c.diasMes||26,moneda:c.moneda||'MXN',anio:c.anio||new Date().getFullYear(),
-      inicioKPI:c.inicioKPI||'2026-09-01',prereqPM:(c.prereqPM!=null?c.prereqPM:PREREQ_PM_DEFECTO)};
+      inicioKPI:c.inicioKPI||'2026-09-01'};
   }
   DB=base; tomarFoto(); cache();
   ESTADO.red='en linea'; ESTADO.ultima=new Date(); ESTADO.error='';
@@ -578,8 +572,7 @@ function aplicarRemoto(t,p){
       const c=(p.new&&p.new.data)||{}; if(!c||!Object.keys(c).length) return;
       DB.areas=c.areas||DB.areas; DB.tecnicos=c.tecnicos||DB.tecnicos; DB.politica=c.politica||DB.politica;
       DB.config=Object.assign({},DB.config,{empresa:c.empresa,area:c.area,responsable:c.responsable,
-        horasTurno:c.horasTurno,diasMes:c.diasMes,moneda:c.moneda,anio:c.anio,inicioKPI:c.inicioKPI||'2026-09-01',
-        prereqPM:(c.prereqPM!=null?c.prereqPM:PREREQ_PM_DEFECTO)});
+        horasTurno:c.horasTurno,diasMes:c.diasMes,moneda:c.moneda,anio:c.anio,inicioKPI:c.inicioKPI||'2026-09-01'});
       SNAP.__config=JSON.stringify(objConfig());
     } else {
       const col=COL[t], arr=DB[col]; if(!arr) return;
@@ -638,7 +631,7 @@ const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','
 const CAT={
   criticidad:['Alta','Media','Baja'],
   estadoActivo:['Operativo','En reparación','Detenido','De baja'],
-  tipoOT:['Correctivo','Preventivo','Predictivo','Mejora','Inspección'],
+  tipoOT:['Correctivo','Preventivo','Predictivo','Mejora','Inspección','Infraestructura'],
   prioridad:['Urgente','Alta','Media','Baja'],
   estadoOT:['Abierta','En proceso','En espera repuesto','Por aprobar','Cerrada','Cancelada'],
   impactoOT:['Sin afectación','Afectó producción','Paro de planta'],
@@ -1136,7 +1129,7 @@ function otsEnRango(r=RANGO){
     if(o.fecha<r.desde||o.fecha>r.hasta) return false;
     if(o.estado==='Cancelada') return false;
     const a=DB.activos.find(x=>x.id===o.activo);
-    if(r.area && (!a||a.area!==r.area)) return false;
+    if(r.area && !(a?a.area===r.area:o.zona===r.area)) return false;
     if(r.activo && o.activo!==r.activo) return false;
     return true;
   });
@@ -1462,6 +1455,11 @@ function tabla(cols,filas,vacio='Sin registros. Usa el botón "Nuevo" para comen
     <tbody>${filas.map(f=>`<tr>${f.map((c,i)=>`<td${cols[i]&&cols[i].num?' class="tnum"':''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 const nombreActivo=id=>{const a=DB.activos.find(x=>x.id===id);return a?a.id+' · '+a.nombre:(id||'—')};
+/* Muchas OTs (sobre todo de Infraestructura) no son sobre un equipo puntual del
+   catálogo sino sobre una zona/área física (una pared, un techo, un piso, etc.).
+   Esta función centraliza cómo se rotula esa columna en cualquier tabla o vista:
+   si la OT tiene equipo, se muestra el equipo; si no, se muestra la zona. */
+const etiquetaEquipoOT=o=>o.activo?nombreActivo(o.activo):(o.zona?'📍 Zona: '+o.zona:'—');
 const tagEstadoOT=e=>{const m={'Abierta':'t-b','En proceso':'t-w','En espera repuesto':'t-v','Por aprobar':'t-w','Cerrada':'t-ok','Cancelada':'t-n'};
   return `<span class="tag ${m[e]||'t-n'}">${e}</span>`};
 const tagPrio=p=>{const m={'Urgente':'t-r','Alta':'t-w','Media':'t-b','Baja':'t-n'};return `<span class="tag ${m[p]||'t-n'}">${p}</span>`};
@@ -1830,7 +1828,7 @@ function vPanel(){
         <button class="btn sm" onclick="ir('ots')">Ver todas</button></div>
       ${tabla([{t:'OT'},{t:'Equipo'},{t:'Tipo'},{t:'Fecha'},{t:'Estado'}],
         [...k.ots].sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,8)
-         .map(o=>[`<b>${o.id}</b>`,esc(nombreActivo(o.activo).slice(0,24)),esc(o.tipo),o.fecha,tagEstadoOT(o.estado)]))}
+         .map(o=>[`<b>${o.id}</b>`,esc(etiquetaEquipoOT(o).slice(0,24)),esc(o.tipo),o.fecha,tagEstadoOT(o.estado)]))}
     </div>
   </div>`);
 }
@@ -1978,7 +1976,7 @@ function vOts(){
         <button class="btn p ed" onclick="formOT()">+ Nueva OT</button>`);
   const lista=DB.ots.filter(o=>
     (!fOT.tipo||o.tipo===fOT.tipo)&&(!fOT.estado||o.estado===fOT.estado)&&(!fOT.prio||o.prioridad===fOT.prio)&&
-    (!fOT.q||(o.id+' '+o.descripcion+' '+o.tecnico+' '+nombreActivo(o.activo)).toLowerCase().includes(fOT.q.toLowerCase())))
+    (!fOT.q||(o.id+' '+o.descripcion+' '+o.tecnico+' '+etiquetaEquipoOT(o)).toLowerCase().includes(fOT.q.toLowerCase())))
     .sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const ab=DB.ots.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado));
   const porAprobar=DB.ots.filter(o=>o.estado==='Por aprobar');
@@ -2001,7 +1999,7 @@ function vOts(){
   ${porAprobar.length?`<div class="card" style="margin-bottom:16px;border-color:#b8790a">
     <div class="ch"><div><h3>⚠ CIERRES PENDIENTES DE TU APROBACIÓN</h3><p>El técnico ya registró el trabajo — revisa y aprueba o devuelve</p></div></div>
     ${tabla([{t:'OT'},{t:'Equipo'},{t:'Técnico'},{t:'Terminó'},{t:'Impacto'},{t:'Paro (h)',num:1},{t:'Rep. (h)',num:1},{t:''}],
-      porAprobar.map(o=>[`<b>${o.id}</b>`,esc(nombreActivo(o.activo).slice(0,24)),esc(o.tecnico||'—'),
+      porAprobar.map(o=>[`<b>${o.id}</b>`,esc(etiquetaEquipoOT(o).slice(0,24)),esc(o.tecnico||'—'),
         o.fechaCierre||'—'+((o.horaFin)?' · '+o.horaFin:''),tagImpacto(o.impacto),num(o.hParo,1),num(o.hReparacion,1),
         `<div class="rowend"><button class="btn sm" onclick="OT_SEL='${js(o.id)}';ir('otimp')">Ver</button>
           <button class="btn sm d ed" onclick="devolverOT('${js(o.id)}')">↩ Devolver</button>
@@ -2031,7 +2029,7 @@ function vOts(){
     </div>
     ${tabla([{t:'OT'},{t:'Fecha'},{t:'Equipo'},{t:'Tipo'},{t:'Descripción / falla'},{t:'Prioridad'},{t:'Solicitó'},{t:'Técnico'},
              {t:'Hora'},{t:'Paro (h)',num:1},{t:'Rep. (h)',num:1},{t:'Impacto'},{t:'Costo',num:1},{t:'Fotos',num:1},{t:'Estado'},{t:''}],
-      lista.map(o=>[`<b>${o.id}</b>`,o.fecha,esc(nombreActivo(o.activo).slice(0,26)),esc(o.tipo),esc(o.descripcion),
+      lista.map(o=>[`<b>${o.id}</b>`,o.fecha,esc(etiquetaEquipoOT(o).slice(0,26)),esc(o.tipo),esc(o.descripcion),
         tagPrio(o.prioridad),esc(o.areaSolicitante||o.solicitante||'—'),esc(o.tecnico||'Por asignar'),
         esc([o.horaInicio,o.horaFin].filter(Boolean).join('–')||'—'),
         num(o.hParo,1),num(o.hReparacion,1),tagImpacto(o.impacto),
@@ -2046,10 +2044,12 @@ function vOts(){
 function formOT(id,activoPre,planPre){
   const o=DB.ots.find(x=>x.id===id)||{id:'',activo:activoPre||(DB.activos[0]||{}).id||'',tipo:planPre?'Preventivo':'Correctivo',
     prioridad:'Media',descripcion:'',estado:'Abierta',fecha:today(),fechaCierre:'',tecnico:DB.tecnicos[0]||'',
-    hParo:0,hReparacion:0,costoMO:0,costoMat:0,falla:!planPre,notas:'',plan:planPre||'',categoria:''};
+    hParo:0,hReparacion:0,costoMO:0,costoMat:0,falla:!planPre,notas:'',plan:planPre||'',categoria:'',zona:''};
   modal(id?'Editar '+id:'Nueva orden de trabajo',
     F.row(F.txt('N.º de OT','id',o.id||siguienteOT(),''),F.date('Fecha de emisión','fecha',o.fecha),F.date('Fecha de cierre','fechaCierre',o.fechaCierre))+
-    F.sel('Equipo / activo','activo',DB.activos.map(a=>({v:a.id,t:a.id+' · '+a.nombre})),o.activo)+
+    F.row(F.sel('Equipo / activo','activo',DB.activos.map(a=>({v:a.id,t:a.id+' · '+a.nombre})),o.activo,'— Ninguno (trabajo de zona / infraestructura) —'),
+      F.sel('Zona / infraestructura','zona',DB.areas,o.zona,'— No aplica —'))+
+    `<p class="hint" style="margin-top:-6px">Usa <b>Zona</b> cuando el trabajo no es sobre un equipo puntual del catálogo, sino sobre infraestructura general de un área (pared, techo, piso, redes, etc.). Puedes dejar el equipo vacío en ese caso.</p>`+
     F.row(F.sel('Tipo de trabajo','tipo',CAT.tipoOT,o.tipo),F.sel('Prioridad','prioridad',CAT.prioridad,o.prioridad),F.sel('Estado','estado',CAT.estadoOT,o.estado))+
     F.txt('Descripción del trabajo o modo de falla','descripcion',o.descripcion,'Ej. Rodamiento dañado en motor principal')+
     F.sel('Categoría de la falla','categoria',CAT.categoriaFalla,o.categoria,'Sin especificar')+
@@ -2069,7 +2069,7 @@ function siguienteOT(){
 }
 function okOT(id){
   const prev=DB.ots.find(x=>x.id===id)||{};
-  const o={id:val('id').toUpperCase(),activo:val('activo'),tipo:val('tipo'),prioridad:val('prioridad'),
+  const o={id:val('id').toUpperCase(),activo:val('activo'),zona:val('zona')||'',tipo:val('tipo'),prioridad:val('prioridad'),
     descripcion:val('descripcion'),estado:val('estado'),fecha:val('fecha'),fechaCierre:val('fechaCierre'),
     tecnico:val('tecnico'),hParo:valn('hParo'),hReparacion:valn('hReparacion'),costoMO:valn('costoMO'),
     costoMat:valn('costoMat'),falla:val('falla')==='1',notas:val('notas'),
@@ -2081,6 +2081,7 @@ function okOT(id){
     horaInicio:prev.horaInicio||'',horaFin:prev.horaFin||'',impacto:prev.impacto||'Sin afectación',
     ejecutor:prev.ejecutor||'',aprobadaPor:prev.aprobadaPor||'',fechaAprobacion:prev.fechaAprobacion||''};
   if(!o.id||!o.descripcion) return toast('N.º de OT y descripción son obligatorios','err');
+  if(!o.activo&&!o.zona) return toast('Selecciona un equipo o una zona de infraestructura','err');
   if(!id&&DB.ots.some(x=>x.id===o.id)) return toast('Ese número de OT ya existe','err');
   if(o.estado==='Cerrada'){
     if(!o.fechaCierre) o.fechaCierre=today();
@@ -2092,9 +2093,9 @@ function okOT(id){
   if(esNueva) formFotosOT(o.id);
 }
 function expOTs(){
-  csv('Ordenes_de_Trabajo',['OT','Fecha','FechaCierre','Equipo','NombreEquipo','Tipo','Prioridad','Estado','Descripcion','CategoriaFalla','Solicitante','AreaSolicitante','Tecnico','HoraInicio','HoraFin','Impacto','AprobadaPor','FechaAprobacion','HorasParo','HorasReparacion','CostoMO','CostoMateriales','CostoTotal','EsFalla','Notas'],
+  csv('Ordenes_de_Trabajo',['OT','Fecha','FechaCierre','Equipo','NombreEquipo','Zona','Tipo','Prioridad','Estado','Descripcion','CategoriaFalla','Solicitante','AreaSolicitante','Tecnico','HoraInicio','HoraFin','Impacto','AprobadaPor','FechaAprobacion','HorasParo','HorasReparacion','CostoMO','CostoMateriales','CostoTotal','EsFalla','Notas'],
     DB.ots.map(o=>{const a=DB.activos.find(x=>x.id===o.activo)||{};
-      return [o.id,o.fecha,o.fechaCierre,o.activo,a.nombre||'',o.tipo,o.prioridad,o.estado,o.descripcion,o.categoria||'',o.solicitante||'',o.areaSolicitante||'',o.tecnico,
+      return [o.id,o.fecha,o.fechaCierre,o.activo,a.nombre||'',o.zona||'',o.tipo,o.prioridad,o.estado,o.descripcion,o.categoria||'',o.solicitante||'',o.areaSolicitante||'',o.tecnico,
         o.horaInicio||'',o.horaFin||'',o.impacto||'',o.aprobadaPor||'',o.fechaAprobacion||'',
         o.hParo,o.hReparacion,o.costoMO,o.costoMat,(Number(o.costoMO)||0)+(Number(o.costoMat)||0),o.falla?'Si':'No',o.notas];}));
 }
@@ -2272,13 +2273,6 @@ function reprogramarUno(id){
   p.semanas=nuevas; p.semExcel=false;
   save(p.frec+': quedan '+nuevas.length+' intervenciones repartidas en el año');
 }
-/* Texto de los prerrequisitos generales de seguridad (DB.config.prereqPM), listos para
-   anteponerse a las notas de cualquier OT preventiva. Vacío si no hay ninguno definido. */
-function textoPrereq(){
-  const lista=(DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean);
-  return lista.length ? MARCADOR_PREREQ+'\n- '+lista.join('\n- ') : '';
-}
-const MARCADOR_PREREQ='Prerrequisitos de seguridad:';
 /* Núcleo compartido para generar la OT preventiva de UN plan: crea la orden
    y deja la actividad marcada como ejecutada en la semana actual. No llama a
    save() ni refresca la pantalla — eso lo hace quien invoca esta función, así
@@ -2286,10 +2280,9 @@ const MARCADOR_PREREQ='Prerrequisitos de seguridad:';
    al final del lote, en lugar de una vez por cada OT generada. */
 function _crearOTDePlan(p){
   const a=DB.activos.find(x=>x.id===p.activo)||{};
-  const pre=textoPrereq();
   const ot={id:siguienteOT(),activo:p.activo,tipo:'Preventivo',prioridad:'Media',descripcion:p.nombre,
     estado:'Abierta',fecha:today(),fechaCierre:'',tecnico:p.resp,hParo:0,hReparacion:Number(p.dur)||0,
-    costoMO:0,costoMat:0,falla:false,notas:(pre?pre+'\n\n':'')+'Tareas: '+p.tareas,plan:p.id};
+    costoMO:0,costoMat:0,falla:false,notas:'Tareas: '+p.tareas,plan:p.id};
   DB.ots.push(ot);
   p.ultima=today(); p.lecturaUlt=Number(a.lectura)||0;
   const w=semActual(), ejg=ejecSemEd(p,new Date().getFullYear());
@@ -2698,7 +2691,7 @@ function vCostos(){
   const costoOT=(mes,area)=>DB.ots.filter(o=>{
       if(o.estado==='Cancelada')return false;
       const d=new Date(o.fecha+'T00:00:00'); if(d.getFullYear()!=ANIO||d.getMonth()!==mes) return false;
-      if(area){const a=DB.activos.find(x=>x.id===o.activo); if(!a||a.area!==area) return false;}
+      if(area){const a=DB.activos.find(x=>x.id===o.activo); if(!(a?a.area===area:o.zona===area)) return false;}
       return true;}).reduce((s,o)=>s+(Number(o.costoMO)||0)+(Number(o.costoMat)||0),0);
   const presMes=MESES.map((_,m)=>P.filter(p=>p.mes===m).reduce((s,p)=>s+(Number(p.presupuestado)||0),0));
   const realMes=MESES.map((_,m)=>P.filter(p=>p.mes===m).reduce((s,p)=>s+(Number(p.real)||0),0));
@@ -3164,17 +3157,6 @@ function vDatos(){
       <button class="btn ed" onclick="DB.tecnicos=val('tecL').split('\\n').map(s=>s.trim()).filter(Boolean);save('Técnicos actualizados')">Guardar técnicos</button>
     </div>
   </div>
-  <div class="card" style="margin-bottom:16px">
-    <div class="ch"><div><h3>PRERREQUISITOS DE SEGURIDAD</h3><p>Aplican a cualquier equipo — se agregan solos a cada OT preventiva que se genere</p></div></div>
-    ${F.area('Uno por línea','prereqPM',(DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean).join('\n'))}
-    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:4px">
-      <button class="btn p ed" onclick="guardarPrereq()">Guardar prerrequisitos</button>
-      ${esAdmin()?`<button class="btn ed" onclick="aplicarPrereqAbiertas()">⤓ Agregarlos también a las OTs ya abiertas</button>`:''}
-    </div>
-    <p class="hint" style="margin-top:10px">Estos puntos aparecen solos, en las notas, en cada OT preventiva nueva que se genere (individual o masiva), antes de
-      las tareas propias de cada actividad. El botón de la derecha los agrega, de una sola vez, a las órdenes que ya están abiertas
-      hoy y todavía no los tienen — no duplica en las que ya se les aplicó.</p>
-  </div>
   <div class="card">
     <div class="ch"><div><h3>ESTADO DEL SISTEMA</h3><p>Registros almacenados</p></div></div>
     <div class="grid g4">
@@ -3188,26 +3170,10 @@ function vDatos(){
   </div>`);
 }
 function okConfig(){
-  DB.config=Object.assign({},DB.config,{empresa:val('empresa'),area:val('careaN'),responsable:val('responsable'),
+  DB.config={empresa:val('empresa'),area:val('careaN'),responsable:val('responsable'),
     horasTurno:valn('horasTurno')||16,diasMes:valn('diasMes')||26,moneda:val('moneda')||'MXN',anio:valn('anio')||new Date().getFullYear(),
-    inicioKPI:val('inicioKPI')||'2026-09-01'});
+    inicioKPI:val('inicioKPI')||'2026-09-01'};
   store(); toast('Configuración guardada'); render();
-}
-function guardarPrereq(){
-  const lineas=val('prereqPM').split('\n').map(s=>s.trim()).filter(Boolean);
-  DB.config=Object.assign({},DB.config,{prereqPM:lineas.join(';')});
-  store(); toast('Prerrequisitos guardados'); render();
-}
-/* Agrega los prerrequisitos, de una sola vez, a las OTs que ya están abiertas hoy y
-   todavía no los tienen en sus notas (no duplica en las que ya se les aplicó). */
-function aplicarPrereqAbiertas(){
-  const pre=textoPrereq();
-  if(!pre) return toast('Primero define y guarda los prerrequisitos de seguridad','err');
-  const objetivo=DB.ots.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado) && !(o.notas||'').includes(MARCADOR_PREREQ));
-  if(!objetivo.length) return toast('Todas las OTs abiertas ya tienen los prerrequisitos, o no hay ninguna abierta');
-  if(!confirm('Se van a agregar los prerrequisitos de seguridad a '+objetivo.length+' orden(es) de trabajo que ya están abiertas y aún no los tienen.\n\n¿Continuar?')) return;
-  objetivo.forEach(o=>{ o.notas=pre+(o.notas?'\n\n'+o.notas:''); });
-  save(objetivo.length+' orden(es) de trabajo actualizadas con los prerrequisitos de seguridad');
 }
 function expJSON(){ bajar('Respaldo_Mantenimiento_'+today()+'.json',JSON.stringify(DB,null,1),'application/json'); }
 function impJSON(inp){
@@ -3564,8 +3530,8 @@ function vOTimp(){
     <div style="border-top:1px solid var(--line2)">
       ${fila('Fecha de emisión',o.fecha)}${fila('Fecha de cierre',o.fechaCierre||'Pendiente')}
       ${fila('Tipo de trabajo',esc(o.tipo)+' &nbsp; '+tagPrio(o.prioridad))}
-      ${fila('Equipo / activo','<b>'+esc(o.activo)+'</b> · '+esc(a.nombre||''))}
-      ${fila('Área / ubicación',esc((a.area||'—')+' · '+(a.ubicacion||'—')))}
+      ${o.activo?fila('Equipo / activo','<b>'+esc(o.activo)+'</b> · '+esc(a.nombre||'')):fila('Zona / infraestructura','<b>📍 '+esc(o.zona||'—')+'</b> (sin equipo puntual)')}
+      ${fila('Área / ubicación',esc((a.area||o.zona||'—')+(a.ubicacion?' · '+a.ubicacion:'')))}
       ${fila('Marca / modelo / serie',esc([a.marca,a.modelo,a.serie].filter(Boolean).join(' · ')||'—'))}
       ${fila('Lectura del equipo',a.lectura!=null?num(a.lectura,0)+(a.lecturaTipo==='Odómetro'?' km':' h'):'—')}
       ${fila('Descripción / modo de falla','<b>'+esc(o.descripcion)+'</b>')}
@@ -4096,7 +4062,7 @@ function vMisTrabajos(){
     <div class="ch"><div><h3>⏳ ENVIADAS A CIERRE — ESPERANDO APROBACIÓN (${porAprobar.length})</h3>
       <p>Ya las registraste; el jefe de mantenimiento las revisa antes de que queden Cerradas</p></div></div>
     ${tabla([{t:'OT'},{t:'Equipo'},{t:'Descripción'},{t:'Enviada'},{t:'Impacto'},{t:''}],
-      porAprobar.map(o=>[`<b>${o.id}</b>`,esc(nombreActivo(o.activo).slice(0,26)),esc(o.descripcion),o.fechaCierre||'—',tagImpacto(o.impacto||'Sin afectación'),
+      porAprobar.map(o=>[`<b>${o.id}</b>`,esc(etiquetaEquipoOT(o).slice(0,26)),esc(o.descripcion),o.fechaCierre||'—',tagImpacto(o.impacto||'Sin afectación'),
         `<button class="btn sm" onclick="OT_SEL='${js(o.id)}';ir('otimp')">Ver</button>`]))}
   </div>`:''}
   <div class="card" style="margin-bottom:16px">
@@ -4104,7 +4070,7 @@ function vMisTrabajos(){
       <p>Ordenadas por prioridad y antigüedad — pulsa "Atender" para registrar el trabajo realizado</p></div></div>
     ${tabla([{t:'OT'},{t:'Fecha'},{t:'Prioridad'},{t:'Equipo'},{t:'Ubicación'},{t:'Tipo'},{t:'Descripción / falla'},{t:'Solicitó'},{t:'Estado'},{t:''}],
       pend.map(o=>{const a=DB.activos.find(x=>x.id===o.activo)||{};
-        return [`<b>${o.id}</b>`,o.fecha,tagPrio(o.prioridad),esc(nombreActivo(o.activo).slice(0,26)),esc(a.ubicacion||'—'),
+        return [`<b>${o.id}</b>`,o.fecha,tagPrio(o.prioridad),esc(etiquetaEquipoOT(o).slice(0,26)),esc(a.ubicacion||'—'),
           esc(o.tipo),esc(o.descripcion),esc(o.solicitante||'—'),tagEstadoOT(o.estado),
           `<div class="rowend"><button class="btn sm p ed" onclick="formEjec('${js(o.id)}')">Atender</button>
             <button class="btn sm" onclick="OT_SEL='${js(o.id)}';ir('otimp')">Ver</button></div>`];}),
@@ -4114,7 +4080,7 @@ function vMisTrabajos(){
     <div class="ch"><div><h3>MI HISTORIAL DE TRABAJOS</h3><p>Últimas 20 órdenes cerradas</p></div></div>
     ${tabla([{t:'OT'},{t:'Fecha'},{t:'Cierre'},{t:'Equipo'},{t:'Descripción'},{t:'Horario'},{t:'Impacto'},{t:'Paro (h)',num:1},{t:'Reparación (h)',num:1},{t:'Costo',num:1}],
       mias.filter(o=>o.estado==='Cerrada').sort((a,b)=>(b.fechaCierre||'').localeCompare(a.fechaCierre||'')).slice(0,20)
-        .map(o=>[o.id,o.fecha,o.fechaCierre||'—',esc(nombreActivo(o.activo).slice(0,26)),esc(o.descripcion),
+        .map(o=>[o.id,o.fecha,o.fechaCierre||'—',esc(etiquetaEquipoOT(o).slice(0,26)),esc(o.descripcion),
           (o.horaInicio||o.horaFin)?esc((o.horaInicio||'—')+'-'+(o.horaFin||'—')):'—',tagImpacto(o.impacto||'Sin afectación'),
           num(o.hParo,1),num(o.hReparacion,1),money((Number(o.costoMO)||0)+(Number(o.costoMat)||0))]),
       'Aún no has cerrado órdenes de trabajo.')}
@@ -4125,8 +4091,8 @@ function formEjec(id){
   const a=DB.activos.find(x=>x.id===o.activo)||{};
   modal('Atender '+o.id,
     `<div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:16px">
-      ${miniFila('Equipo','<b>'+esc(o.activo)+'</b> · '+esc(a.nombre||''))}
-      ${miniFila('Ubicación',esc((a.area||'—')+' · '+(a.ubicacion||'—')))}
+      ${o.activo?miniFila('Equipo','<b>'+esc(o.activo)+'</b> · '+esc(a.nombre||'')):miniFila('Zona','📍 '+esc(o.zona||'—')+' <span style="color:var(--txt3)">(infraestructura, sin equipo puntual)</span>')}
+      ${miniFila('Ubicación',esc((a.area||o.zona||'—')+(a.ubicacion?' · '+a.ubicacion:'')))}
       ${miniFila('Reporte',esc(o.descripcion))}
       ${miniFila('Prioridad',tagPrio(o.prioridad))}
       ${miniFila('Solicitó',esc(o.solicitante||'—')+(o.areaSolicitante?' ('+esc(o.areaSolicitante)+')':''))}
@@ -4202,7 +4168,7 @@ function vMiArea(){
     <div class="ch"><div><h3>ÓRDENES DE TRABAJO DE ${esc(String(SESION.area).toUpperCase())}</h3>
       <p>Seguimiento completo de lo que ha reportado tu área</p></div></div>
     ${tabla([{t:'OT'},{t:'Fecha'},{t:'Equipo'},{t:'Descripción'},{t:'Prioridad'},{t:'Técnico asignado'},{t:'Estado'},{t:'Fotos',num:1},{t:'Cierre'},{t:''}],
-      mias.map(o=>[`<b>${o.id}</b>`,o.fecha,esc(nombreActivo(o.activo).slice(0,26)),esc(o.descripcion),
+      mias.map(o=>[`<b>${o.id}</b>`,o.fecha,esc(etiquetaEquipoOT(o).slice(0,26)),esc(o.descripcion),
         tagPrio(o.prioridad),esc(o.tecnico||'Por asignar'),tagEstadoOT(o.estado),
         (Array.isArray(o.fotos)?o.fotos.length:0)||'—',o.fechaCierre||'—',
         `<div class="rowend"><button class="btn sm" onclick="OT_SEL='${js(o.id)}';ir('otimp')">Ver</button>
@@ -4219,7 +4185,7 @@ function vMiArea(){
   </div>`);
 }
 function formOTArea(id){
-  const o=DB.ots.find(x=>x.id===id)||{id:'',activo:'',descripcion:'',prioridad:'Media',fecha:today(),notas:'',
+  const o=DB.ots.find(x=>x.id===id)||{id:'',activo:'',zona:'',descripcion:'',prioridad:'Media',fecha:today(),notas:'',
     falla:true,tipo:'Correctivo',categoria:'',contacto:''};
   /* Puede reportar sobre cualquier equipo de la planta, no solo los de su
      propia área — los de su área se muestran primero para que sea más rápido
@@ -4230,7 +4196,9 @@ function formOTArea(id){
   modal(id?'Editar orden '+id:'Reportar trabajo de mantenimiento',
     F.row(F.date('Fecha del reporte','fecha',o.fecha),
           F.sel('Prioridad','prioridad',CAT.prioridad,o.prioridad))+
-    F.sel('Equipo afectado','activo',lista,o.activo)+
+    F.row(F.sel('Equipo afectado','activo',lista,o.activo,'— No aplica (es de zona / infraestructura) —'),
+      F.sel('Zona / infraestructura','zona',DB.areas,o.zona,'— No aplica —'))+
+    `<p class="hint" style="margin-top:-6px">Si el problema no es de un equipo puntual (por ejemplo, algo de la infraestructura del área: pared, techo, piso, redes, etc.), deja el equipo vacío y elige la zona.</p>`+
     F.txt('¿Qué problema presenta?','descripcion',o.descripcion,'Ej. Fuga de aceite en el reductor, ruido anormal')+
     F.row(F.sel('Tipo de trabajo','tipo',CAT.tipoOT,o.tipo||'Correctivo'),
           F.sel('Categoría de la falla','categoria',CAT.categoriaFalla,o.categoria,'Sin especificar'))+
@@ -4244,12 +4212,12 @@ function formOTArea(id){
      <button class="btn p" onclick="okOTArea('${js(id||'')}')">${id?'Guardar cambios':'Registrar orden de trabajo'}</button>`);
 }
 async function okOTArea(id){
-  const desc=val('descripcion'), act=val('activo');
-  if(!act) return toast('Selecciona el equipo afectado','err');
-  if(!desc) return toast('Describe el problema que presenta el equipo','err');
+  const desc=val('descripcion'), act=val('activo'), zona=val('zona');
+  if(!act&&!zona) return toast('Selecciona el equipo o la zona afectada','err');
+  if(!desc) return toast('Describe el problema presentado','err');
   if(id){
     const o=DB.ots.find(x=>x.id===id); if(!o) return;
-    Object.assign(o,{activo:act,descripcion:desc,prioridad:val('prioridad'),fecha:val('fecha'),
+    Object.assign(o,{activo:act,zona:zona||'',descripcion:desc,prioridad:val('prioridad'),fecha:val('fecha'),
       tipo:val('tipo')||'Correctivo',categoria:val('categoria'),
       notas:val('notas'),falla:val('falla')==='1',solicitante:val('solicitante')});
     return save('Orden '+id+' actualizada');
@@ -4265,7 +4233,7 @@ async function okOTArea(id){
     if(error) throw error;
     nid=data;
   }catch(e){ nid=siguienteOT(); }
-  DB.ots.push({id:nid,activo:act,tipo:val('tipo')||'Correctivo',prioridad:val('prioridad'),descripcion:desc,
+  DB.ots.push({id:nid,activo:act,zona:zona||'',tipo:val('tipo')||'Correctivo',prioridad:val('prioridad'),descripcion:desc,
     estado:'Abierta',fecha:val('fecha'),fechaCierre:'',tecnico:'',hParo:0,hReparacion:0,costoMO:0,costoMat:0,
     falla:val('falla')==='1',categoria:val('categoria'),contacto:'',notas:val('notas'),plan:'',fotos:[],
     solicitante:val('solicitante')||SESION.nombre,areaSolicitante:SESION.area,creada:today()});
@@ -5181,7 +5149,7 @@ function vMateriales(){
       <p>Al entregar se descuenta el almacén y el costo llega solo a la orden de trabajo</p></div></div>
     ${tabla([{t:'OT'},{t:'Equipo'},{t:'Artículo'},{t:'Ubicación'},{t:'Solicitado',num:1},{t:'Existencia',num:1},{t:'Solicita'},{t:'Fecha'},{t:''}],
       pend.map(m=>{const o=DB.ots.find(x=>x.id===m.ot)||{}, c=existTotal(m.articulo);
-        return [`<b>${esc(m.ot)}</b>`,esc(nombreActivo(o.activo).slice(0,24)),esc(nomArt(m.articulo).slice(0,34)),
+        return [`<b>${esc(m.ot)}</b>`,esc(etiquetaEquipoOT(o).slice(0,24)),esc(nomArt(m.articulo).slice(0,34)),
           etiqUbic(m.articulo),
           num(m.cantidad_solicitada,2),
           `<b style="color:${c>=m.cantidad_solicitada?'#1f8a4c':'#c23b3b'}">${num(c,2)}</b>`,
