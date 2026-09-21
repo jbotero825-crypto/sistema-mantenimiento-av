@@ -429,7 +429,13 @@ function guardarConexion(url,key){
 function cache(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ MEM=DB; } }
 function leerCache(){ try{ const r=localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){} return MEM; }
 
-const vacio=()=>({config:{empresa:'',area:'',responsable:'',horasTurno:16,diasMes:26,moneda:'MXN',anio:new Date().getFullYear(),inicioKPI:'2026-09-01'},
+/* Prerrequisitos generales de seguridad: aplican a CUALQUIER equipo/actividad preventiva,
+   se guardan en DB.config.prereqPM (separados por ';', igual que las tareas de un plan) y
+   se copian solos en cada OT preventiva que se genere (ver textoPrereq() y _crearOTDePlan). */
+const PREREQ_PM_DEFECTO='Bloqueo e inspección del equipo — confirmar que esté apagado y sin energía residual antes de intervenir;'+
+  'Uso de EPP completo según el riesgo de la tarea;Señalización y delimitación del área de trabajo;'+
+  'Notificar al operador del área y verificar permiso de trabajo si la tarea lo requiere;Dejar el área limpia y ordenada al terminar';
+const vacio=()=>({config:{empresa:'',area:'',responsable:'',horasTurno:16,diasMes:26,moneda:'MXN',anio:new Date().getFullYear(),inicioKPI:'2026-09-01',prereqPM:PREREQ_PM_DEFECTO},
   areas:[],tecnicos:[],politica:'',version:4,
   activos:[],planes:[],ots:[],bitacora:[],indeci:[],checklists:[],inspecciones:[],
   objetivos:[],organigrama:[],flujo:[],presupuesto:[],usuarios:[],
@@ -454,7 +460,7 @@ async function cargarTodo(){
     base.areas=c.areas||[]; base.tecnicos=c.tecnicos||[]; base.politica=c.politica||'';
     base.config={empresa:c.empresa||'',area:c.area||'',responsable:c.responsable||'',
       horasTurno:c.horasTurno||16,diasMes:c.diasMes||26,moneda:c.moneda||'MXN',anio:c.anio||new Date().getFullYear(),
-      inicioKPI:c.inicioKPI||'2026-09-01'};
+      inicioKPI:c.inicioKPI||'2026-09-01',prereqPM:(c.prereqPM!=null?c.prereqPM:PREREQ_PM_DEFECTO)};
   }
   DB=base; tomarFoto(); cache();
   ESTADO.red='en linea'; ESTADO.ultima=new Date(); ESTADO.error='';
@@ -572,7 +578,8 @@ function aplicarRemoto(t,p){
       const c=(p.new&&p.new.data)||{}; if(!c||!Object.keys(c).length) return;
       DB.areas=c.areas||DB.areas; DB.tecnicos=c.tecnicos||DB.tecnicos; DB.politica=c.politica||DB.politica;
       DB.config=Object.assign({},DB.config,{empresa:c.empresa,area:c.area,responsable:c.responsable,
-        horasTurno:c.horasTurno,diasMes:c.diasMes,moneda:c.moneda,anio:c.anio,inicioKPI:c.inicioKPI||'2026-09-01'});
+        horasTurno:c.horasTurno,diasMes:c.diasMes,moneda:c.moneda,anio:c.anio,inicioKPI:c.inicioKPI||'2026-09-01',
+        prereqPM:(c.prereqPM!=null?c.prereqPM:PREREQ_PM_DEFECTO)});
       SNAP.__config=JSON.stringify(objConfig());
     } else {
       const col=COL[t], arr=DB[col]; if(!arr) return;
@@ -2265,6 +2272,13 @@ function reprogramarUno(id){
   p.semanas=nuevas; p.semExcel=false;
   save(p.frec+': quedan '+nuevas.length+' intervenciones repartidas en el año');
 }
+/* Texto de los prerrequisitos generales de seguridad (DB.config.prereqPM), listos para
+   anteponerse a las notas de cualquier OT preventiva. Vacío si no hay ninguno definido. */
+function textoPrereq(){
+  const lista=(DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean);
+  return lista.length ? MARCADOR_PREREQ+'\n- '+lista.join('\n- ') : '';
+}
+const MARCADOR_PREREQ='Prerrequisitos de seguridad:';
 /* Núcleo compartido para generar la OT preventiva de UN plan: crea la orden
    y deja la actividad marcada como ejecutada en la semana actual. No llama a
    save() ni refresca la pantalla — eso lo hace quien invoca esta función, así
@@ -2272,9 +2286,10 @@ function reprogramarUno(id){
    al final del lote, en lugar de una vez por cada OT generada. */
 function _crearOTDePlan(p){
   const a=DB.activos.find(x=>x.id===p.activo)||{};
+  const pre=textoPrereq();
   const ot={id:siguienteOT(),activo:p.activo,tipo:'Preventivo',prioridad:'Media',descripcion:p.nombre,
     estado:'Abierta',fecha:today(),fechaCierre:'',tecnico:p.resp,hParo:0,hReparacion:Number(p.dur)||0,
-    costoMO:0,costoMat:0,falla:false,notas:'Tareas: '+p.tareas,plan:p.id};
+    costoMO:0,costoMat:0,falla:false,notas:(pre?pre+'\n\n':'')+'Tareas: '+p.tareas,plan:p.id};
   DB.ots.push(ot);
   p.ultima=today(); p.lecturaUlt=Number(a.lectura)||0;
   const w=semActual(), ejg=ejecSemEd(p,new Date().getFullYear());
@@ -3149,6 +3164,17 @@ function vDatos(){
       <button class="btn ed" onclick="DB.tecnicos=val('tecL').split('\\n').map(s=>s.trim()).filter(Boolean);save('Técnicos actualizados')">Guardar técnicos</button>
     </div>
   </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="ch"><div><h3>PRERREQUISITOS DE SEGURIDAD</h3><p>Aplican a cualquier equipo — se agregan solos a cada OT preventiva que se genere</p></div></div>
+    ${F.area('Uno por línea','prereqPM',(DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean).join('\n'))}
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:4px">
+      <button class="btn p ed" onclick="guardarPrereq()">Guardar prerrequisitos</button>
+      ${esAdmin()?`<button class="btn ed" onclick="aplicarPrereqAbiertas()">⤓ Agregarlos también a las OTs ya abiertas</button>`:''}
+    </div>
+    <p class="hint" style="margin-top:10px">Estos puntos aparecen solos, en las notas, en cada OT preventiva nueva que se genere (individual o masiva), antes de
+      las tareas propias de cada actividad. El botón de la derecha los agrega, de una sola vez, a las órdenes que ya están abiertas
+      hoy y todavía no los tienen — no duplica en las que ya se les aplicó.</p>
+  </div>
   <div class="card">
     <div class="ch"><div><h3>ESTADO DEL SISTEMA</h3><p>Registros almacenados</p></div></div>
     <div class="grid g4">
@@ -3162,10 +3188,26 @@ function vDatos(){
   </div>`);
 }
 function okConfig(){
-  DB.config={empresa:val('empresa'),area:val('careaN'),responsable:val('responsable'),
+  DB.config=Object.assign({},DB.config,{empresa:val('empresa'),area:val('careaN'),responsable:val('responsable'),
     horasTurno:valn('horasTurno')||16,diasMes:valn('diasMes')||26,moneda:val('moneda')||'MXN',anio:valn('anio')||new Date().getFullYear(),
-    inicioKPI:val('inicioKPI')||'2026-09-01'};
+    inicioKPI:val('inicioKPI')||'2026-09-01'});
   store(); toast('Configuración guardada'); render();
+}
+function guardarPrereq(){
+  const lineas=val('prereqPM').split('\n').map(s=>s.trim()).filter(Boolean);
+  DB.config=Object.assign({},DB.config,{prereqPM:lineas.join(';')});
+  store(); toast('Prerrequisitos guardados'); render();
+}
+/* Agrega los prerrequisitos, de una sola vez, a las OTs que ya están abiertas hoy y
+   todavía no los tienen en sus notas (no duplica en las que ya se les aplicó). */
+function aplicarPrereqAbiertas(){
+  const pre=textoPrereq();
+  if(!pre) return toast('Primero define y guarda los prerrequisitos de seguridad','err');
+  const objetivo=DB.ots.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado) && !(o.notas||'').includes(MARCADOR_PREREQ));
+  if(!objetivo.length) return toast('Todas las OTs abiertas ya tienen los prerrequisitos, o no hay ninguna abierta');
+  if(!confirm('Se van a agregar los prerrequisitos de seguridad a '+objetivo.length+' orden(es) de trabajo que ya están abiertas y aún no los tienen.\n\n¿Continuar?')) return;
+  objetivo.forEach(o=>{ o.notas=pre+(o.notas?'\n\n'+o.notas:''); });
+  save(objetivo.length+' orden(es) de trabajo actualizadas con los prerrequisitos de seguridad');
 }
 function expJSON(){ bajar('Respaldo_Mantenimiento_'+today()+'.json',JSON.stringify(DB,null,1),'application/json'); }
 function impJSON(inp){
