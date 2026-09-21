@@ -1198,9 +1198,30 @@ function kpis(r=RANGO){
 function estadoPlan(p){
   const a=DB.activos.find(x=>x.id===p.activo);
   if(p.base==='Frecuencia (días)' && !p.ultima){
-    const n=proximaSemana(p);
-    return{prox:n?n.txt:'—',restante:n?n.dias:0,unidad:'días',pct:0,
-      estado:(n&&n.dias<0)?'Vencido':'Sin registrar'};
+    /* Nunca se ha ejecutado: el estado se mide contra el MES del cronograma en que
+       le toca, no contra el día exacto — mientras estemos dentro de ese mes se
+       considera "Por vencer" (activa/pendiente del mes, dentro del plazo de
+       ejecución mensual de las OTs), no "Vencido". Sólo pasa a Vencido cuando el
+       mes programado ya terminó por completo sin que se haya registrado ninguna
+       ejecución (antes se reprogramaba solo al año siguiente y se perdía de vista). */
+    const AN=anioCrono(), ac=semActual(), na=noApSem(p,AN);
+    const s=(p.semanas||[]).filter(w=>!na.includes(w));
+    if(!s.length) return{prox:'—',restante:0,unidad:'días',pct:0,estado:'Sin registrar'};
+    /* Comparación por MES (no por semana exacta): así una actividad de septiembre
+       sigue "Por vencer" todo septiembre, sin importar en qué semana del mes esté
+       hoy, y sólo se vuelve Vencido al entrar a octubre sin ninguna ejecución. */
+    const mesAct=Math.floor(ac/4);
+    const meses=[...new Set(s.map(w=>Math.floor(w/4)))];
+    const mesesPasados=meses.filter(m=>m<mesAct);
+    if(mesesPasados.length){
+      const m=Math.max(...mesesPasados), idx=Math.max(...s.filter(w=>Math.floor(w/4)===m));
+      const f=fechaDeSem(idx,AN), d=daysBetween(today(),f);
+      return{prox:MESES[m]+' S'+((idx%4)+1),restante:d,unidad:'días',pct:0,estado:'Vencido'};
+    }
+    const m=Math.min(...meses.filter(mm=>mm>=mesAct)), idx=Math.min(...s.filter(w=>Math.floor(w/4)===m));
+    const f=fechaDeSem(idx,AN), d=daysBetween(today(),f);
+    return{prox:MESES[m]+' S'+((idx%4)+1),restante:d,unidad:'días',pct:0,
+      estado:m===mesAct?'Por vencer':'Programado'};
   }
   if(p.base==='Frecuencia (días)'){
     const prox=addDays(p.ultima,Number(p.intervalo)||30);
