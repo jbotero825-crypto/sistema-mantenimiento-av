@@ -431,7 +431,8 @@ function leerCache(){ try{ const r=localStorage.getItem(KEY); if(r) return JSON.
 
 /* Prerrequisitos generales de seguridad: aplican a CUALQUIER equipo/actividad preventiva,
    se guardan en DB.config.prereqPM (separados por ';', igual que las tareas de un plan) y
-   se copian solos en cada OT preventiva que se genere (ver textoPrereq() y _crearOTDePlan). */
+   se copian solos, como ítems de checklist, en cada OT preventiva que se genere
+   (ver itemsPrereq() y _crearOTDePlan). */
 const PREREQ_PM_DEFECTO='Bloqueo e inspección del equipo — confirmar que esté apagado y sin energía residual antes de intervenir;'+
   'Uso de EPP completo según el riesgo de la tarea;Señalización y delimitación del área de trabajo;'+
   'Notificar al operador del área y verificar permiso de trabajo si la tarea lo requiere;Dejar el área limpia y ordenada al terminar';
@@ -2103,6 +2104,7 @@ function okOT(id){
     categoria:val('categoria')||prev.categoria||'',contacto:prev.contacto||'',
     plan:prev.plan||'',
     fotos:prev.fotos||[],
+    checklist:prev.checklist||[],
     solicitante:prev.solicitante||(SESION?SESION.nombre:''),
     areaSolicitante:prev.areaSolicitante||'',
     horaInicio:prev.horaInicio||'',horaFin:prev.horaFin||'',impacto:prev.impacto||'Sin afectación',
@@ -2300,13 +2302,18 @@ function reprogramarUno(id){
   p.semanas=nuevas; p.semExcel=false;
   save(p.frec+': quedan '+nuevas.length+' intervenciones repartidas en el año');
 }
-/* Texto de los prerrequisitos generales de seguridad (DB.config.prereqPM), listos para
-   anteponerse a las notas de cualquier OT preventiva. Vacío si no hay ninguno definido. */
-function textoPrereq(){
-  const lista=(DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean);
-  return lista.length ? MARCADOR_PREREQ+'\n- '+lista.join('\n- ') : '';
+/* Ítems de checklist para los prerrequisitos generales de seguridad (DB.config.prereqPM).
+   fijo:true => el técnico los puede marcar pero no borrar (ver formEjec/pintarChecklistEjec). */
+function itemsPrereq(){
+  return (DB.config.prereqPM||'').split(';').map(s=>s.trim()).filter(Boolean)
+    .map(texto=>({texto,estado:'',origen:'prereq',fijo:true}));
 }
-const MARCADOR_PREREQ='Prerrequisitos de seguridad:';
+/* Ítems de checklist para las tareas propias de un plan preventivo (p.tareas). También fijos:
+   el técnico las verifica (Cumple/No cumple/No aplica) pero no las puede eliminar. */
+function itemsTareasPlan(p){
+  return (p.tareas||'').split(';').map(s=>s.trim()).filter(Boolean)
+    .map(texto=>({texto,estado:'',origen:'plan',fijo:true}));
+}
 /* Núcleo compartido para generar la OT preventiva de UN plan: crea la orden
    y deja la actividad marcada como ejecutada en la semana actual. No llama a
    save() ni refresca la pantalla — eso lo hace quien invoca esta función, así
@@ -2314,10 +2321,9 @@ const MARCADOR_PREREQ='Prerrequisitos de seguridad:';
    al final del lote, en lugar de una vez por cada OT generada. */
 function _crearOTDePlan(p){
   const a=DB.activos.find(x=>x.id===p.activo)||{};
-  const pre=textoPrereq();
   const ot={id:siguienteOT(),activo:p.activo,tipo:'Preventivo',prioridad:'Media',descripcion:p.nombre,
     estado:'Abierta',fecha:today(),fechaCierre:'',tecnico:p.resp,hParo:0,hReparacion:Number(p.dur)||0,
-    costoMO:0,costoMat:0,falla:false,notas:(pre?pre+'\n\n':'')+'Tareas: '+p.tareas,plan:p.id};
+    costoMO:0,costoMat:0,falla:false,notas:'',checklist:itemsPrereq().concat(itemsTareasPlan(p)),plan:p.id};
   DB.ots.push(ot);
   p.ultima=today(); p.lecturaUlt=Number(a.lectura)||0;
   const w=semActual(), ejg=ejecSemEd(p,new Date().getFullYear());
@@ -3226,15 +3232,16 @@ function guardarPrereq(){
   DB.config=Object.assign({},DB.config,{prereqPM:lineas.join(';')});
   store(); toast('Prerrequisitos guardados'); render();
 }
-/* Agrega los prerrequisitos, de una sola vez, a las OTs que ya están abiertas hoy y
-   todavía no los tienen en sus notas (no duplica en las que ya se les aplicó). */
+/* Agrega los prerrequisitos, de una sola vez, como ítems de checklist a las OTs que ya
+   están abiertas hoy y todavía no los tienen (no duplica en las que ya se les aplicó). */
 function aplicarPrereqAbiertas(){
-  const pre=textoPrereq();
-  if(!pre) return toast('Primero define y guarda los prerrequisitos de seguridad','err');
-  const objetivo=DB.ots.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado) && !(o.notas||'').includes(MARCADOR_PREREQ));
+  const pre=itemsPrereq();
+  if(!pre.length) return toast('Primero define y guarda los prerrequisitos de seguridad','err');
+  const objetivo=DB.ots.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado) &&
+    !(Array.isArray(o.checklist)&&o.checklist.some(it=>it.origen==='prereq')));
   if(!objetivo.length) return toast('Todas las OTs abiertas ya tienen los prerrequisitos, o no hay ninguna abierta');
   if(!confirm('Se van a agregar los prerrequisitos de seguridad a '+objetivo.length+' orden(es) de trabajo que ya están abiertas y aún no los tienen.\n\n¿Continuar?')) return;
-  objetivo.forEach(o=>{ o.notas=pre+(o.notas?'\n\n'+o.notas:''); });
+  objetivo.forEach(o=>{ o.checklist=pre.concat(Array.isArray(o.checklist)?o.checklist:[]); });
   save(objetivo.length+' orden(es) de trabajo actualizadas con los prerrequisitos de seguridad');
 }
 function expJSON(){ bajar('Respaldo_Mantenimiento_'+today()+'.json',JSON.stringify(DB,null,1),'application/json'); }
@@ -3569,7 +3576,10 @@ function vOTimp(){
   const o=DB.ots.find(x=>x.id===OT_SEL);
   if(!o) return set('<div class="card"><div class="empty">No hay órdenes de trabajo registradas. Crea la primera con "+ Nueva OT".</div></div>');
   const a=DB.activos.find(x=>x.id===o.activo)||{};
-  const tareas=(o.notas||'').replace(/^Tareas:\s*/,'').split(';').map(s=>s.trim()).filter(Boolean);
+  const chk=Array.isArray(o.checklist)?o.checklist:[];
+  /* Compatibilidad con OTs viejas, de antes del checklist estructurado, donde las
+     tareas venían como texto plano "Tareas: a; b; c" dentro de las notas. */
+  const legadoTareas=chk.length?[]:(o.notas||'').replace(/^Tareas:\s*/,'').split(';').map(s=>s.trim()).filter(Boolean);
   const fila=(l,v)=>`<div style="display:flex;border:1px solid var(--line2);border-top:0">
     <div style="flex:0 0 165px;background:var(--bg2);padding:8px 11px;font-size:10.5px;letter-spacing:.8px;color:var(--txt2);font-weight:700;text-transform:uppercase">${l}</div>
     <div style="flex:1;padding:8px 11px;font-size:12.5px">${v||'—'}</div></div>`;
@@ -3610,9 +3620,22 @@ function vOTimp(){
           return `<span class="tag t-b" style="cursor:pointer" onclick="closeModal();verInsp('${js(i.id)}')">${esc(c.nombre||i.id)} · ${i.fecha}</span>`;}).join(' '));})()}
     </div>
     <div class="sep"></div>
-    <h3 style="font-size:12px;letter-spacing:1.2px;color:var(--acc);margin-bottom:9px">TAREAS / TRABAJO REALIZADO</h3>
-    ${tareas.length?`<ol style="padding-left:22px;line-height:2;font-size:12.5px">${tareas.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`
-      :`<div style="border:1px solid var(--line2);border-radius:8px;min-height:96px;padding:11px;font-size:12.5px;color:var(--txt2)">${esc(o.notas||'')}</div>`}
+    <h3 style="font-size:12px;letter-spacing:1.2px;color:var(--acc);margin-bottom:9px">CHECKLIST DE TAREAS</h3>
+    ${chk.length?`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr>
+          <th style="text-align:left;border-bottom:1px solid var(--line2);padding:6px 4px">Tarea</th>
+          <th style="text-align:right;border-bottom:1px solid var(--line2);padding:6px 4px;width:110px">Resultado</th>
+        </tr></thead>
+        <tbody>${chk.map(it=>`<tr>
+          <td style="padding:6px 4px;border-bottom:1px solid var(--line2)">${esc(it.texto)}</td>
+          <td style="padding:6px 4px;border-bottom:1px solid var(--line2);text-align:right">${esc(it.estado||'Pendiente')}</td>
+        </tr>`).join('')}</tbody>
+      </table>`
+      :(legadoTareas.length?`<ol style="padding-left:22px;line-height:2;font-size:12.5px">${legadoTareas.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`
+        :`<div style="border:1px solid var(--line2);border-radius:8px;padding:11px;font-size:12.5px;color:var(--txt2)">Esta orden no tiene checklist de tareas.</div>`)}
+    <div class="sep"></div>
+    <h3 style="font-size:12px;letter-spacing:1.2px;color:var(--acc);margin-bottom:9px">OBSERVACIONES</h3>
+    <div style="border:1px solid var(--line2);border-radius:8px;min-height:70px;padding:11px;font-size:12.5px;color:var(--txt2)">${esc(legadoTareas.length?'':(o.notas||''))||'—'}</div>
     ${Array.isArray(o.fotos)&&o.fotos.length?`<div class="sep"></div>
       <h3 style="font-size:12px;letter-spacing:1.2px;color:var(--acc);margin-bottom:9px">EVIDENCIA FOTOGRÁFICA (${o.fotos.length})</h3>
       ${galeriaFotos(o,false)}`:''}
@@ -4148,9 +4171,36 @@ function vMisTrabajos(){
       'Aún no has cerrado órdenes de trabajo.')}
   </div>`);
 }
+/* Checklist que el técnico está editando en el modal "Atender OT" (copia de trabajo,
+   independiente de o.checklist hasta que se guarda con okEjec). Los ítems con fijo:true
+   (prerrequisitos de seguridad y tareas del plan) se pueden marcar pero no borrar; los
+   que el técnico agrega (origen:'tecnico') sí se pueden quitar. */
+let EJEC_CHK=[];
+function pintarChecklistEjec(){
+  const box=document.getElementById('chkBox'); if(!box) return;
+  box.innerHTML=EJEC_CHK.length?EJEC_CHK.map((it,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="flex:1;font-size:12.5px">${esc(it.texto)}${it.origen==='prereq'?' <span class="hint" style="font-size:10px">· seguridad</span>':it.origen==='plan'?' <span class="hint" style="font-size:10px">· plan</span>':''}</span>
+      <select style="width:135px" onchange="EJEC_CHK[${i}].estado=this.value">
+        <option value="" ${!it.estado?'selected':''}>— Pendiente —</option>
+        <option value="Cumple" ${it.estado==='Cumple'?'selected':''}>Cumple</option>
+        <option value="No cumple" ${it.estado==='No cumple'?'selected':''}>No cumple</option>
+        <option value="No aplica" ${it.estado==='No aplica'?'selected':''}>No aplica</option>
+      </select>
+      ${it.fijo?'':`<button class="btn sm d ed" onclick="EJEC_CHK.splice(${i},1);pintarChecklistEjec()" title="Quitar tarea">✕</button>`}
+    </div>`).join('') : '<div class="empty">Sin tareas en el checklist todavía. Agrega la primera abajo.</div>';
+}
+function agregarTareaEjec(){
+  const inp=document.getElementById('f_nuevaTarea'); const v=((inp&&inp.value)||'').trim();
+  if(!v) return;
+  EJEC_CHK.push({texto:v,estado:'',origen:'tecnico',fijo:false});
+  if(inp) inp.value='';
+  pintarChecklistEjec();
+}
 function formEjec(id){
   const o=DB.ots.find(x=>x.id===id); if(!o) return;
   const a=DB.activos.find(x=>x.id===o.activo)||{};
+  EJEC_CHK=JSON.parse(JSON.stringify(o.checklist||[]));
   modal('Atender '+o.id,
     `<div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:16px">
       ${o.activo?miniFila('Equipo','<b>'+esc(o.activo)+'</b> · '+esc(a.nombre||'')):miniFila('Zona','📍 '+esc(o.zona||'—')+' <span style="color:var(--txt3)">(infraestructura, sin equipo puntual)</span>')}
@@ -4163,7 +4213,15 @@ function formEjec(id){
       return mm.length?`<label>Material de esta orden</label>${tabla([{t:'Artículo'},{t:'Cant.',num:1},{t:'Importe',num:1},{t:'Estado'}],
         mm.map(x=>[esc(nomArt(x.articulo).slice(0,30)),num(x.cantidad_solicitada,2),money(x.importe),
           `<span class="tag ${x.estado==='Entregado'?'t-ok':x.estado==='Sin stock'?'t-r':'t-w'}">${esc(x.estado)}</span>`]))}<div class="sep"></div>`:'';})()+
-    F.area('Trabajo realizado / diagnóstico','notas',o.notas)+
+    `<label>Checklist de tareas</label>
+     <p class="hint" style="margin-top:-4px;margin-bottom:8px">Marca cada tarea como Cumple, No cumple o No aplica. Los prerrequisitos de seguridad y las tareas del plan no se pueden borrar, pero puedes agregar las que hagan falta.</p>
+     <div id="chkBox"></div>
+     <div style="display:flex;gap:8px;margin-top:10px">
+       <input id="f_nuevaTarea" placeholder="Agregar una tarea al checklist…" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarTareaEjec();}">
+       <button class="btn sm ed" onclick="agregarTareaEjec()">+ Agregar</button>
+     </div>
+     <div class="sep"></div>`+
+    F.area('Observaciones / comentarios pendientes','notas',o.notas)+
     `<div class="sep"></div>`+bloqueFotos(o)+`<div class="sep"></div>`+
     F.row(F.hora('Hora de inicio del trabajo','horaInicio',o.horaInicio),
           F.hora('Hora en que terminó','horaFin',o.horaFin))+
@@ -4177,18 +4235,26 @@ function formEjec(id){
     F.row(F.sel('Estado de la orden','estado',['Abierta','En proceso','En espera repuesto'],o.estado==='Cerrada'||o.estado==='Por aprobar'?'En proceso':o.estado),
           F.date('Fecha en que terminaste','fechaCierre',o.fechaCierre))+
     `<p class="hint">Al pulsar <b>"Enviar a cierre"</b> la orden queda en estado <b>Por aprobar</b>: el jefe de mantenimiento
-      revisa lo que registraste y la aprueba para que quede realmente Cerrada. Si algo falta, te la puede devolver.</p>`,
+      revisa lo que registraste y la aprueba para que quede realmente Cerrada. Si algo falta, te la puede devolver.
+      Para poder enviarla a cierre, todos los ítems del checklist deben quedar marcados (Cumple, No cumple o No aplica).</p>`,
     `<button class="btn" onclick="closeModal()">Cancelar</button>
      <button class="btn" onclick="closeModal();formPedirMaterial('${js(id)}')">⇥ Solicitar material</button>
      <button class="btn" onclick="okEjec('${js(id)}','En proceso')">Guardar avance</button>
      <button class="btn p" onclick="okEjec('${js(id)}','Por aprobar')">Enviar a cierre</button>`);
+  pintarChecklistEjec();
 }
 function okEjec(id,forzar){
   const o=DB.ots.find(x=>x.id===id); if(!o) return;
+  const estadoFinal=forzar||val('estado');
+  if(['Por aprobar','Cerrada'].includes(estadoFinal)){
+    const falta=(EJEC_CHK||[]).find(it=>!it.estado);
+    if(falta) return toast('Falta marcar "'+falta.texto+'" en el checklist antes de enviar a cierre','err');
+  }
+  o.checklist=EJEC_CHK;
   o.notas=val('notas'); o.hParo=valn('hParo'); o.hReparacion=valn('hReparacion');
   o.costoMO=valn('costoMO'); o.costoMat=valn('costoMat');
   o.horaInicio=val('horaInicio'); o.horaFin=val('horaFin'); o.impacto=val('impacto')||'Sin afectación';
-  o.estado=forzar||val('estado'); o.fechaCierre=val('fechaCierre');
+  o.estado=estadoFinal; o.fechaCierre=val('fechaCierre');
   if(['Por aprobar','Cerrada'].includes(o.estado)&&!o.fechaCierre) o.fechaCierre=today();
   if(!['Por aprobar','Cerrada'].includes(o.estado)) o.fechaCierre='';
   o.ejecutor=SESION.nombre;
@@ -4297,7 +4363,7 @@ async function okOTArea(id){
   }catch(e){ nid=siguienteOT(); }
   DB.ots.push({id:nid,activo:act,zona:zona||'',tipo:val('tipo')||'Correctivo',prioridad:val('prioridad'),descripcion:desc,
     estado:'Abierta',fecha:val('fecha'),fechaCierre:'',tecnico:'',hParo:0,hReparacion:0,costoMO:0,costoMat:0,
-    falla:val('falla')==='1',categoria:val('categoria'),contacto:'',notas:val('notas'),plan:'',fotos:[],
+    falla:val('falla')==='1',categoria:val('categoria'),contacto:'',notas:val('notas'),plan:'',fotos:[],checklist:[],
     solicitante:val('solicitante')||SESION.nombre,areaSolicitante:SESION.area,creada:today()});
   save('Orden de trabajo '+nid+' registrada. Mantenimiento ya puede verla.');
   formFotosOT(nid);
