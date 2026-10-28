@@ -4127,10 +4127,52 @@ async function arrancar(){
    VISTA: MIS TRABAJOS (TÉCNICO)
    ========================================================= */
 function misOTs(){ return DB.ots.filter(o=>o.tecnico===SESION.nombre); }
+/* Filtros de "Mis Trabajos": búsqueda libre + tipo de mantenimiento + quién solicitó + prioridad + estado.
+   Los recuadros por tipo cuentan SIEMPRE sobre todas las pendientes (sin filtrar) y al pulsarlos filtran. */
+let fMT={q:'',tipo:'',solic:'',prio:'',estado:''};
+function mtTipo(t){ fMT.tipo=(fMT.tipo===t?'':t); vMisTrabajos(); }
+function mtLimpiar(){ fMT={q:'',tipo:'',solic:'',prio:'',estado:''}; vMisTrabajos(); }
 function vMisTrabajos(){
   const mias=misOTs();
-  const pend=mias.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado))
+  const pendTodas=mias.filter(o=>['Abierta','En proceso','En espera repuesto'].includes(o.estado))
     .sort((a,b)=>(CAT.prioridad.indexOf(a.prioridad)-CAT.prioridad.indexOf(b.prioridad))||a.fecha.localeCompare(b.fecha));
+  // --- filtros ---
+  const qn=(fMT.q||'').trim().toLowerCase();
+  const pend=pendTodas.filter(o=>{
+    if(fMT.tipo && o.tipo!==fMT.tipo) return false;
+    if(fMT.solic && (o.solicitante||'(sin dato)')!==fMT.solic) return false;
+    if(fMT.prio && o.prioridad!==fMT.prio) return false;
+    if(fMT.estado && o.estado!==fMT.estado) return false;
+    if(qn){
+      const a=DB.activos.find(x=>x.id===o.activo)||{};
+      const txt=(o.id+' '+(o.descripcion||'')+' '+etiquetaEquipoOT(o)+' '+(o.zona||'')+' '+(a.ubicacion||'')+' '+(o.solicitante||'')+' '+(o.areaSolicitante||'')+' '+(o.tipo||'')).toLowerCase();
+      if(!txt.includes(qn)) return false;
+    }
+    return true;
+  });
+  const filtrado=!!(qn||fMT.tipo||fMT.solic||fMT.prio||fMT.estado);
+  // tipos presentes en las pendientes (los del catálogo primero, luego cualquier otro)
+  const tiposCat=CAT.tipoOT.filter(t=>pendTodas.some(o=>o.tipo===t));
+  const tiposOtros=[...new Set(pendTodas.map(o=>o.tipo).filter(t=>t&&!CAT.tipoOT.includes(t)))];
+  const tiposVista=[...tiposCat,...tiposOtros];
+  const solicitantes=[...new Set(pendTodas.map(o=>o.solicitante||'(sin dato)'))].sort((a,b)=>a.localeCompare(b));
+  const colorTipo={Correctivo:'r',Preventivo:'g',Predictivo:'v',Mejora:'v',Inspección:'w',Infraestructura:'w'};
+  const recuadrosTipo=tiposVista.length?`<div class="grid g4" style="margin-bottom:16px">
+    ${tiposVista.map(t=>{
+      const n=pendTodas.filter(o=>o.tipo===t).length, urg=pendTodas.filter(o=>o.tipo===t&&o.prioridad==='Urgente').length;
+      const act=fMT.tipo===t;
+      return `<div onclick="mtTipo('${js(t)}')" style="cursor:pointer;${act?'outline:2px solid var(--acc);border-radius:10px;':''}" title="Pulsa para filtrar la lista por ${esc(t)}">
+        ${tile(esc(t)+(act?' ✔':''),n,'',colorTipo[t]||'',urg?`${urg} urgente${urg>1?'s':''} · ${act?'quitar filtro':'ver solo estas'}`:(act?'quitar filtro':'ver solo estas'))}</div>`;}).join('')}
+  </div>`:'';
+  const barraFiltros=`<div class="bar" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      ${campoBuscar('q_mt',fMT.q,'fMT.q=this.value;vMisTrabajos()','Buscar OT, equipo, zona, falla, quién solicitó…',300)}
+      <select onchange="fMT.tipo=this.value;vMisTrabajos()"><option value="">Todo tipo de mantenimiento</option>${tiposVista.map(t=>`<option ${fMT.tipo===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+      <select onchange="fMT.solic=this.value;vMisTrabajos()"><option value="">Todos los solicitantes</option>${solicitantes.map(x=>`<option value="${esc(x)}" ${fMT.solic===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select onchange="fMT.prio=this.value;vMisTrabajos()"><option value="">Toda prioridad</option>${CAT.prioridad.map(x=>`<option ${fMT.prio===x?'selected':''}>${x}</option>`).join('')}</select>
+      <select onchange="fMT.estado=this.value;vMisTrabajos()"><option value="">Todo estado</option>${['Abierta','En proceso','En espera repuesto'].map(x=>`<option ${fMT.estado===x?'selected':''}>${x}</option>`).join('')}</select>
+      ${filtrado?`<button class="btn sm" onclick="mtLimpiar()">✕ Limpiar filtros</button>`:''}
+      <span class="hint" style="margin-left:auto">Mostrando <b>${pend.length}</b> de ${pendTodas.length} pendientes</span>
+    </div>`;
   const porAprobar=mias.filter(o=>o.estado==='Por aprobar').sort((a,b)=>(a.fechaCierre||'').localeCompare(b.fechaCierre||''));
   const mes=today().slice(0,7);
   const cerradasMes=mias.filter(o=>o.estado==='Cerrada'&&(o.fechaCierre||'').slice(0,7)===mes);
@@ -4138,11 +4180,12 @@ function vMisTrabajos(){
   acts(`<button class="btn" onclick="ir('otimp')">▥ Ver formato de OT</button>`);
   set(`
   <div class="grid g4" style="margin-bottom:16px">
-    ${tile('Pendientes asignadas',pend.length,'',pend.length?'w':'g','Órdenes por atender')}
-    ${tile('Urgentes',pend.filter(o=>o.prioridad==='Urgente').length,'','r','Atención inmediata')}
+    ${tile('Pendientes asignadas',pendTodas.length,'',pendTodas.length?'w':'g','Órdenes por atender')}
+    ${tile('Urgentes',pendTodas.filter(o=>o.prioridad==='Urgente').length,'','r','Atención inmediata')}
     ${tile('Cerradas este mes',cerradasMes.length,'','g','Trabajos completados')}
     ${tile('Horas trabajadas del mes',num(hMes,1),'h','v','Mano de obra registrada')}
   </div>
+  ${recuadrosTipo}
   ${porAprobar.length?`<div class="card" style="margin-bottom:16px;border-color:#a3670a">
     <div class="ch"><div><h3>⏳ ENVIADAS A CIERRE — ESPERANDO APROBACIÓN (${porAprobar.length})</h3>
       <p>Ya las registraste; el jefe de mantenimiento las revisa antes de que queden Cerradas</p></div></div>
@@ -4153,13 +4196,14 @@ function vMisTrabajos(){
   <div class="card" style="margin-bottom:16px">
     <div class="ch"><div><h3>ÓRDENES DE TRABAJO ASIGNADAS A MÍ</h3>
       <p>Ordenadas por prioridad y antigüedad — pulsa "Atender" para registrar el trabajo realizado</p></div></div>
+    ${barraFiltros}
     ${tabla([{t:'OT'},{t:'Fecha'},{t:'Prioridad'},{t:'Equipo'},{t:'Ubicación'},{t:'Tipo'},{t:'Descripción / falla'},{t:'Solicitó'},{t:'Estado'},{t:''}],
       pend.map(o=>{const a=DB.activos.find(x=>x.id===o.activo)||{};
         return [`<b>${o.id}</b>`,o.fecha,tagPrio(o.prioridad),esc(etiquetaEquipoOT(o).slice(0,26)),esc(a.ubicacion||'—'),
           esc(o.tipo),esc(o.descripcion),esc(o.solicitante||'—'),tagEstadoOT(o.estado),
           `<div class="rowend"><button class="btn sm p ed" onclick="formEjec('${js(o.id)}')">Atender</button>
             <button class="btn sm" onclick="OT_SEL='${js(o.id)}';ir('otimp')">Ver</button></div>`];}),
-      '✓ No tienes órdenes de trabajo pendientes.')}
+      filtrado?'Ninguna orden pendiente coincide con los filtros. Pulsa "Limpiar filtros".':'✓ No tienes órdenes de trabajo pendientes.')}
   </div>
   <div class="card">
     <div class="ch"><div><h3>MI HISTORIAL DE TRABAJOS</h3><p>Últimas 20 órdenes cerradas</p></div></div>
