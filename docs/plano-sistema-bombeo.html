@@ -47,6 +47,11 @@ svg text{font-family:var(--mono);fill:var(--fg)}
 .vlabel{font-size:22px;font-weight:600}
 .badge{font-size:20px;font-weight:600}
 .panel{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:0}
+.viewbar{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.viewbar button{font:500 13px var(--body);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:4px;padding:5px 10px;cursor:pointer}
+.viewbar button[aria-pressed="true"]{border-color:var(--flow);box-shadow:inset 0 -3px 0 var(--flow)}
+.viewbar button:focus-visible{outline:2px solid var(--flow);outline-offset:2px}
+#plScroll.foto svg{min-width:0;width:min(100%,560px);margin:0 auto}
 .ops{border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px}
 .ops h3,.steps h3{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
 .ops h3:first-child{margin-top:0}
@@ -93,8 +98,10 @@ ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
     <span><i class="dot" style="background:var(--closed)"></i>Cerrada</span>
     <span><i class="dot" style="background:var(--idle)"></i>No influye</span>
   </div>
-  <div class="scroll">
+  <div class="viewbar"><span class="tag">Vista:</span><button type="button" id="vFoto" aria-pressed="true">Como la foto</button><button type="button" id="vHoja" aria-pressed="false">Hoja horizontal</button></div>
+  <div class="scroll" id="plScroll">
   <svg id="plano" viewBox="-70 0 2110 720" role="img" aria-label="Plano de tuberías redibujado tal cual el bosquejo: mula a la izquierda, bomba junto a la Fosa 1, líneas largas hacia el Biodigestor y Fosa 2 a la derecha">
+<g id="rot">
     <!-- estructura (líneas negras finas del dibujo) -->
     <g fill="none" stroke="var(--muted)" stroke-width="2.5">
       <path d="M262 420 V122 H1228"/><path d="M1266 122 H1880"/>
@@ -104,19 +111,19 @@ ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
     </g>
     <!-- tanques -->
     <rect class="tank" x="333" y="447" width="369" height="201" rx="2"/>
-    <text x="360" y="495" style="font:700 30px var(--display);fill:var(--fg)">Fosa 1</text>
-    <text x="518" y="690" text-anchor="middle" class="small">5 m</text>
-    <text x="712" y="672" class="small">4,6 m</text>
-    <text x="850" y="690" class="small">3 m profundidad</text>
+    <text data-f="400,620,start" x="360" y="495" style="font:700 30px var(--display);fill:var(--fg)">Fosa 1</text>
+    <text data-f="518,680,middle" x="518" y="690" text-anchor="middle" class="small">5 m</text>
+    <text data-f="735,550,middle" x="712" y="672" class="small">4,6 m</text>
+    <text data-f="762,550,middle" x="850" y="690" class="small">3 m profundidad</text>
     <rect class="tank" x="1255" y="447" width="369" height="201" rx="2"/>
-    <text x="1282" y="495" style="font:700 30px var(--display);fill:var(--fg)">Fosa 2</text>
-    <text x="1440" y="690" text-anchor="middle" class="small">5 m</text>
-    <text x="1634" y="672" class="small">4,6 m</text>
-    <text x="1740" y="690" class="small">3 m profundidad</text>
+    <text data-f="1322,620,start" x="1282" y="495" style="font:700 30px var(--display);fill:var(--fg)">Fosa 2</text>
+    <text data-f="1440,680,middle" x="1440" y="690" text-anchor="middle" class="small">5 m</text>
+    <text data-f="1657,550,middle" x="1634" y="672" class="small">4,6 m</text>
+    <text data-f="1684,550,middle" x="1740" y="690" class="small">3 m profundidad</text>
     <rect class="tank" x="1930" y="8" width="70" height="140" rx="20"/>
-    <text x="1965" y="185" text-anchor="middle" style="font:700 22px var(--display);fill:var(--suct)">Biodigestor</text>
-    <text x="40" y="610" text-anchor="middle" style="font:700 30px var(--display);fill:var(--fg)">Mula</text>
-    <text x="40" y="638" text-anchor="middle" class="small">carrotanque</text>
+    <text data-f="1975,170,end" x="1965" y="185" text-anchor="middle" style="font:700 22px var(--display);fill:var(--suct)">Biodigestor</text>
+    <text data-f="48,660,middle" x="40" y="610" text-anchor="middle" style="font:700 30px var(--display);fill:var(--fg)">Mula</text>
+    <text data-f="72,660,middle" x="40" y="638" text-anchor="middle" class="small">carrotanque</text>
 
     <!-- lado A (rojo) -->
     <path class="pipe s" d="M180 40 H400"/>
@@ -138,14 +145,15 @@ ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
       <circle r="22" fill="var(--paper)" stroke="var(--fg)" stroke-width="3"/>
       <text y="9" text-anchor="middle" style="font:600 26px var(--body);fill:var(--fg)">ω</text>
     </g>
-    <text x="470" y="372" style="font:600 22px var(--mono);fill:var(--fg)">BOMBA LÓBULOS</text>
-    <text id="giroTxt" x="470" y="400" class="small"></text>
+    <text data-f="480,400,start" x="470" y="372" style="font:600 22px var(--mono);fill:var(--fg)">BOMBA LÓBULOS</text>
+    <text id="giroTxt" data-f="505,400,start" x="470" y="400" class="small"></text>
     <text x="300" y="352" text-anchor="end" class="badge" style="fill:var(--disc)">B</text>
     <text x="300" y="398" text-anchor="end" class="badge" style="fill:var(--suct)">A</text>
 
     <g id="valves"></g>
-    <text x="420" y="88" text-anchor="middle" class="small" style="fill:var(--miss)">faltante</text>
-    <text x="1335" y="330" class="small" style="fill:var(--miss)">falta</text>
+    <text data-f="458,60,end" x="420" y="88" text-anchor="middle" class="small" style="fill:var(--miss)">faltante</text>
+    <text data-f="1290,330,middle" x="1335" y="330" class="small" style="fill:var(--miss)">falta</text>
+  </g>
   </svg>
   </div>
 
@@ -232,6 +240,7 @@ for(const [k,[x,y,o,miss]] of Object.entries(V)){
   vg.appendChild(g);
   const left=k==='V5';const lx=o==='v'?(left?x-26:x+26):x, ly=o==='v'?y+8:y-24;
   const t=el('text',{x:lx,y:ly,'text-anchor':o==='v'?(left?'end':'start'):'middle',class:'vlabel',id:'t'+k});
+  const F={V3:'268,12,start',V4:'120,62,end',V9:'430,62,end'};if(F[k])t.dataset.f=F[k];
   t.textContent=k; if(miss) t.style.fill='var(--miss)'; vg.appendChild(t);
 }
 const opsEl=document.getElementById('ops'),stepsEl=document.getElementById('steps');
@@ -279,5 +288,24 @@ OPS.forEach(o=>{const all=o.d.includes('all');
   t+=`<tr><td>${o.n}${all?' <span class="tag">deducida</span>':''}</td><td class="${o.d.includes('giro')?'ded':''}">${o.giro==='Normal'?'N':'INV'}</td>`+
   keys.map(k=>{const s=o.s[k]||'–';return `<td class="${s} ${(all||o.d.includes(k))&&s!=='–'?'ded':''}">${s}</td>`}).join('')+'</tr>'});
 document.getElementById('matrix').innerHTML=t+'</tbody>';
+function setView(foto){
+  const svg=document.getElementById('plano'),rot=document.getElementById('rot');
+  document.getElementById('plScroll').classList.toggle('foto',foto);
+  document.getElementById('vFoto').setAttribute('aria-pressed',foto);
+  document.getElementById('vHoja').setAttribute('aria-pressed',!foto);
+  svg.setAttribute('viewBox',foto?'-740 -70 810 2110':'-70 0 2110 720');
+  rot.setAttribute('transform',foto?'rotate(90)':'');
+  rot.querySelectorAll('text').forEach(t=>{
+    if(!t.dataset.o)t.dataset.o=[t.getAttribute('x')||0,t.getAttribute('y')||0,t.getAttribute('text-anchor')||'start'].join(',');
+    const [x,y,an]=((foto&&t.dataset.f)||t.dataset.o).split(',');
+    t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('text-anchor',an);
+    if(foto)t.setAttribute('transform',`rotate(-90 ${x} ${y})`);else t.removeAttribute('transform');
+  });
+  try{localStorage.setItem('vista',foto?'foto':'hoja')}catch(e){}
+}
+document.getElementById('vFoto').onclick=()=>setView(true);
+document.getElementById('vHoja').onclick=()=>setView(false);
 show(0);
+let v='foto';try{v=localStorage.getItem('vista')||'foto'}catch(e){}
+setView(v==='foto');
 </script>
