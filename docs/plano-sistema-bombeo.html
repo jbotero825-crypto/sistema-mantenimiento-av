@@ -1,0 +1,280 @@
+<title>Plano Fosas y Biodigestor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: hoja técnica — cabecera corta, plano interactivo a todo ancho, panel de maniobra, tablas de referencia */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --fg:#1b2430; --muted:#5d6878; --line:#d5dbe3;
+  --suct:#c8372d; --disc:#1f5fbf; --miss:#d6338a; --flow:#e08a00;
+  --open:#1f9d55; --closed:#1b2430; --idle:#a7b0bc;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161d; --paper:#18202a; --fg:#e4e9ef; --muted:#9aa5b3; --line:#2c3746;
+  --suct:#ff6b5e; --disc:#5b9bff; --miss:#ff5fb0; --flow:#ffb020;
+  --open:#3ccf7d; --closed:#e4e9ef; --idle:#56616f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161d; --paper:#18202a; --fg:#e4e9ef; --muted:#9aa5b3; --line:#2c3746;
+  --suct:#ff6b5e; --disc:#5b9bff; --miss:#ff5fb0; --flow:#ffb020;
+  --open:#3ccf7d; --closed:#e4e9ef; --idle:#56616f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:.01em}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.1}
+h2{font-size:22px}
+p{margin:0;max-width:68ch}
+.eyebrow{font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:8px}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:6px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:26px;height:0;border-top:4px solid}
+.dot{width:12px;height:12px;border-radius:2px}
+.scroll{overflow-x:auto}
+svg{display:block;min-width:820px;width:100%;height:auto}
+svg text{font-family:var(--mono);fill:var(--fg)}
+.pipe{fill:none;stroke-width:6;stroke-linejoin:round;stroke-linecap:round}
+.s{stroke:var(--suct)} .d{stroke:var(--disc)} .m{stroke:var(--miss);stroke-dasharray:10 6}
+.flow{fill:none;stroke:var(--flow);stroke-width:4;stroke-dasharray:10 14;stroke-linecap:round;stroke-linejoin:round;animation:run 1s linear infinite}
+@keyframes run{to{stroke-dashoffset:-48}}
+@media (prefers-reduced-motion:reduce){.flow{animation:none;stroke-dasharray:none;opacity:.7}}
+.tank{fill:var(--bg);stroke:var(--fg);stroke-width:2}
+.small{font-size:12px;fill:var(--muted)}
+.vlabel{font-size:13px;font-weight:600}
+.badge{font-size:11px;font-weight:600}
+.panel{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:0}
+.ops{border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px}
+.ops h3,.steps h3{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.ops h3:first-child{margin-top:0}
+.ops button{font:500 14px var(--body);text-align:left;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:4px;padding:8px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.ops button:hover{border-color:var(--muted)}
+.ops button[aria-pressed="true"]{border-color:var(--flow);box-shadow:inset 3px 0 0 var(--flow)}
+.ops button:focus-visible{outline:2px solid var(--flow);outline-offset:2px}
+.tag{font:600 11px var(--mono);color:var(--muted)}
+.steps{padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.steps ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.chips{display:inline-flex;flex-wrap:wrap;gap:6px;vertical-align:middle}
+.chip{font:600 13px var(--mono);padding:1px 8px;border-radius:3px;border:1.5px solid}
+.chip.a{color:var(--open);border-color:var(--open)}
+.chip.c{color:var(--fg);border-color:var(--fg)}
+.giro{font:600 13px var(--mono);padding:2px 8px;border-radius:3px;background:var(--flow);color:#1b1200}
+.note{font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px}
+.card{padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mx td,.mx th{text-align:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mx td:first-child,.mx th:first-child{text-align:left;font-family:var(--body)}
+.mx .A{color:var(--open);font-weight:600} .mx .C{font-weight:600}
+.mx .ded{text-decoration:underline dotted}
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+@media (max-width:720px){.panel{grid-template-columns:1fr}.ops{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Plano de operación · bomba de lóbulos</div>
+  <h1>Sistema de bombeo: Fosa 1, Fosa 2, Biodigestor y Mula</h1>
+  <p>Redibujo del bosquejo a mano. Elige una maniobra y el plano te muestra por dónde va el fluido y qué válvulas abrir o cerrar. Lo rosado es lo que falta instalar.</p>
+</header>
+
+<section class="sheet" aria-label="Plano">
+  <div class="legend">
+    <span><i class="sw" style="border-color:var(--suct)"></i>Lado A de la bomba (rojo)</span>
+    <span><i class="sw" style="border-color:var(--disc)"></i>Lado B de la bomba (azul)</span>
+    <span><i class="sw" style="border-color:var(--miss);border-top-style:dashed"></i>Falta instalar</span>
+    <span><i class="sw" style="border-color:var(--flow);border-top-style:dotted"></i>Recorrido del fluido</span>
+    <span><i class="dot" style="background:var(--open)"></i>Abierta</span>
+    <span><i class="dot" style="background:var(--closed)"></i>Cerrada</span>
+    <span><i class="dot" style="background:var(--idle)"></i>No influye</span>
+  </div>
+  <div class="scroll">
+  <svg id="plano" viewBox="0 0 1000 580" role="img" aria-label="Plano de tuberías con bomba, dos fosas, biodigestor, mula y nueve válvulas">
+    <!-- tanques -->
+    <rect class="tank" x="60" y="390" width="270" height="150" rx="3"/>
+    <text x="195" y="450" text-anchor="middle" style="font:700 20px var(--display);fill:var(--fg)">FOSA 1</text>
+    <text x="195" y="474" text-anchor="middle" class="small">5 × 4,6 m · 3 m prof.</text>
+    <text x="195" y="492" text-anchor="middle" class="small">≈ 69 m³</text>
+    <rect class="tank" x="590" y="390" width="270" height="150" rx="3"/>
+    <text x="725" y="450" text-anchor="middle" style="font:700 20px var(--display);fill:var(--fg)">FOSA 2</text>
+    <text x="725" y="474" text-anchor="middle" class="small">5 × 4,6 m · 3 m prof.</text>
+    <text x="725" y="492" text-anchor="middle" class="small">≈ 69 m³</text>
+    <rect class="tank" x="880" y="170" width="100" height="180" rx="40"/>
+    <text x="930" y="256" text-anchor="middle" style="font:700 15px var(--display);fill:var(--fg)">BIODI-</text>
+    <text x="930" y="274" text-anchor="middle" style="font:700 15px var(--display);fill:var(--fg)">GESTOR</text>
+    <rect class="tank" x="14" y="118" width="72" height="44" rx="3"/>
+    <text x="50" y="145" text-anchor="middle" style="font:700 15px var(--display);fill:var(--fg)">MULA</text>
+    <text x="50" y="182" text-anchor="middle" class="small">carrotanque</text>
+
+    <!-- tuberías lado A (rojo) -->
+    <path class="pipe s" d="M190 260 V60 H760"/>
+    <path class="pipe s" d="M800 60 H930 V170"/>
+    <path class="pipe m" d="M760 60 H800"/>
+    <path class="pipe s" d="M400 60 V140"/>
+    <path class="pipe s" d="M190 260 V390"/>
+    <path class="pipe s" d="M190 260 H269"/>
+    <!-- tuberías lado B (azul) -->
+    <path class="pipe d" d="M321 260 H400 V140"/>
+    <path class="pipe d" d="M400 260 H880"/>
+    <path class="pipe d" d="M400 140 H200 a10 10 0 0 0 -20 0 H86"/>
+    <path class="pipe m" d="M720 260 V390"/>
+
+    <!-- nodos -->
+    <g fill="var(--fg)"><circle cx="190" cy="260" r="5"/><circle cx="400" cy="260" r="5"/><circle cx="400" cy="140" r="5"/><circle cx="400" cy="60" r="5"/><circle cx="190" cy="60" r="0"/><circle cx="720" cy="260" r="5"/></g>
+
+    <path id="flow" class="flow" d=""/>
+
+    <!-- bomba -->
+    <g transform="translate(295 260)">
+      <circle r="28" fill="var(--paper)" stroke="var(--fg)" stroke-width="2.5"/>
+      <ellipse cx="-7" cy="0" rx="6" ry="13" fill="none" stroke="var(--fg)" stroke-width="2"/>
+      <ellipse cx="7" cy="0" rx="6" ry="13" fill="none" stroke="var(--fg)" stroke-width="2"/>
+    </g>
+    <text x="295" y="312" text-anchor="middle" style="font:600 13px var(--mono);fill:var(--fg)">BOMBA LÓBULOS</text>
+    <text id="giroTxt" x="295" y="330" text-anchor="middle" class="small"></text>
+    <text x="252" y="250" text-anchor="middle" class="badge" style="fill:var(--suct)">A</text>
+    <text x="338" y="250" text-anchor="middle" class="badge" style="fill:var(--disc)">B</text>
+
+    <g id="valves"></g>
+    <text x="780" y="30" text-anchor="middle" class="small" style="fill:var(--miss)">falta</text>
+    <text x="736" y="372" class="small" style="fill:var(--miss)">falta conexión</text>
+  </svg>
+  </div>
+
+  <div class="panel" style="border-top:1px solid var(--line)">
+    <div class="ops" id="ops"></div>
+    <div class="steps" id="steps" aria-live="polite"></div>
+  </div>
+</section>
+
+<div class="grid2">
+  <section class="sheet card">
+    <h2>Cómo funciona</h2>
+    <p>La bomba de lóbulos tiene dos bocas. Con <b>giro normal</b> chupa por el lado A (rojo) y bota por el lado B (azul). Con <b>giro invertido</b> pasa al revés. Por eso, con el mismo tubo, se puede llenar y vaciar cada fosa.</p>
+    <ul class="plain">
+      <li><b>Lado A (rojo):</b> llega de la Fosa 1 por la V2 y de la línea larga del Biodigestor por la V1. La V3 une esta línea roja con la salida a la mula.</li>
+      <li><b>Lado B (azul):</b> sube a la mula por la V5 y la V4, y va por la línea larga (V6) hacia la Fosa 2 (V7) y el Biodigestor (V8).</li>
+    </ul>
+  </section>
+  <section class="sheet card">
+    <h2>Lo que falta (rosado)</h2>
+    <ul class="plain">
+      <li><b>Válvula 9</b> en la línea roja del Biodigestor. Sin ella, al sacar de la Fosa 2 hacia la mula, el fluido se devuelve al biodigestor.</li>
+      <li><b>Conexión de la Fosa 2</b> a la línea azul larga, con la <b>válvula 7</b>.</li>
+      <li>Confirmar que la bomba tiene <b>inversor de giro</b> (o variador) para trabajar en los dos sentidos.</li>
+    </ul>
+  </section>
+</div>
+
+<section class="sheet card">
+  <h2>Ubicación de las válvulas</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Válvula</th><th>Dónde está</th><th>Para qué sirve</th></tr></thead>
+    <tbody>
+      <tr><td><b>V1</b></td><td>Lado A de la bomba, hacia la línea roja</td><td>Conecta la bomba con la línea del Biodigestor / V3</td></tr>
+      <tr><td><b>V2</b></td><td>Entre la Fosa 1 y la bomba (lado A)</td><td>Sacar o meter a la Fosa 1</td></tr>
+      <tr><td><b>V3</b></td><td>Entre la línea roja y la salida a la mula</td><td>Mandar a la mula lo que viene por el lado A</td></tr>
+      <tr><td><b>V4</b></td><td>Salida a la mula</td><td>Abrir o cerrar la carga a la mula</td></tr>
+      <tr><td><b>V5</b></td><td>Lado B de la bomba, subida a la mula</td><td>Mandar a la mula lo que bota el lado B</td></tr>
+      <tr><td><b>V6</b></td><td>Lado B de la bomba, entrada a la línea larga</td><td>Conecta la bomba con la Fosa 2 y el Biodigestor</td></tr>
+      <tr><td><b>V7</b></td><td>Derivación a la Fosa 2 (falta)</td><td>Sacar o meter a la Fosa 2</td></tr>
+      <tr><td><b>V8</b></td><td>Línea azul larga, antes del Biodigestor</td><td>Aislar o abrir el Biodigestor por la línea azul</td></tr>
+      <tr><td><b>V9</b></td><td>Línea roja larga, antes del Biodigestor (falta)</td><td>Aislar o abrir el Biodigestor por la línea roja</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="sheet card">
+  <h2>Tabla de maniobras</h2>
+  <p class="note">A = abierta · C = cerrada · – = no influye. Las letras con subrayado punteado no estaban en la hoja y las deduje del plano.</p>
+  <div class="scroll"><table class="mx" id="matrix"></table></div>
+</section>
+
+<section class="sheet card">
+  <h2>Antes de arrancar</h2>
+  <ul class="plain">
+    <li>La bomba de lóbulos es de desplazamiento positivo: <b>nunca la arranques con la descarga cerrada</b>, porque revienta tubería o el sello.</li>
+    <li>Primero acomoda todas las válvulas y después prende la bomba.</li>
+    <li>Para cambiar el giro, <b>apaga la bomba</b>, espera a que pare, cambia válvulas y luego invierte.</li>
+    <li>Revisa el nivel de la fosa de donde sacas para que la bomba no trabaje en seco.</li>
+  </ul>
+</section>
+</div>
+
+<script>
+const V={V1:[190,200,'v'],V2:[190,325,'v'],V3:[400,100,'v'],V4:[300,140,'h'],V5:[400,200,'v'],V6:[470,260,'h'],V7:[720,325,'v',1],V8:[820,260,'h'],V9:[780,60,'h',1]};
+const MULA=' H200 a10 10 0 0 0 -20 0 H86';
+const OPS=[
+ {g:'notas',n:'Fosa 1 → Mula',giro:'Normal',p:'M190 390 V260 H400 V140'+MULA,s:{V1:'C',V2:'A',V3:'C',V4:'A',V5:'A',V6:'C'},d:[]},
+ {g:'notas',n:'Biodigestor → Mula',giro:'Normal',p:'M930 170 V60 H190 V260 H400 V140'+MULA,s:{V1:'A',V2:'C',V3:'C',V4:'A',V5:'A',V6:'C',V9:'A'},d:['V9']},
+ {g:'notas',n:'Fosa 1 → Fosa 2',giro:'Normal',p:'M190 390 V260 H720 V390',s:{V1:'C',V2:'A',V5:'C',V6:'A',V7:'A',V8:'C'},d:[]},
+ {g:'notas',n:'Fosa 2 → Fosa 1',giro:'Invertido',p:'M720 390 V260 H190 V390',s:{V1:'C',V2:'A',V5:'C',V6:'A',V7:'A',V8:'C'},d:['V2']},
+ {g:'notas',n:'Fosa 2 → Mula',giro:'Invertido',p:'M720 390 V260 H190 V60 H400 V140'+MULA,s:{V1:'A',V2:'C',V3:'A',V4:'A',V5:'C',V6:'A',V7:'A',V8:'C',V9:'C'},d:['giro']},
+ {g:'ded',n:'Fosa 1 → Biodigestor',giro:'Normal',p:'M190 390 V260 H880',s:{V1:'C',V2:'A',V5:'C',V6:'A',V7:'C',V8:'A'},d:['all']},
+ {g:'ded',n:'Biodigestor → Fosa 2',giro:'Normal',p:'M930 170 V60 H190 V260 H720 V390',s:{V1:'A',V2:'C',V3:'C',V5:'C',V6:'A',V7:'A',V8:'C',V9:'A'},d:['all']},
+ {g:'ded',n:'Fosa 2 → Biodigestor',giro:'Invertido',p:'M720 390 V260 H190 V60 H930 V170',s:{V1:'A',V2:'C',V3:'C',V5:'C',V6:'A',V7:'A',V8:'C',V9:'A'},d:['all']},
+ {g:'ded',n:'Biodigestor → Fosa 1',giro:'Invertido',p:'M880 260 H190 V390',s:{V1:'C',V2:'A',V5:'C',V6:'A',V7:'C',V8:'A'},d:['all']},
+];
+const NS='http://www.w3.org/2000/svg';
+const vg=document.getElementById('valves');
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+for(const [k,[x,y,o,miss]] of Object.entries(V)){
+  const g=el('g',{transform:`translate(${x} ${y}) rotate(${o==='v'?90:0})`,id:'g'+k});
+  g.appendChild(el('path',{d:'M-13 -9 L0 0 L-13 9 Z M13 -9 L0 0 L13 9 Z','stroke-width':2,'stroke-linejoin':'round',class:'vb'}));
+  vg.appendChild(g);
+  const lx=o==='v'?x+20:x, ly=o==='v'?y+5:y-17;
+  const t=el('text',{x:lx,y:ly,'text-anchor':o==='v'?'start':'middle',class:'vlabel',id:'t'+k});
+  t.textContent=k; if(miss) t.style.fill='var(--miss)'; vg.appendChild(t);
+}
+const opsEl=document.getElementById('ops'),stepsEl=document.getElementById('steps');
+let html='<h3>Según tus notas</h3>';
+OPS.forEach((o,i)=>{ if(i===5) html+='<h3>Deducidas del plano (verificar)</h3>';
+  html+=`<button type="button" id="op${i}" data-i="${i}" aria-pressed="false"><span>${o.n}</span><span class="tag">${o.giro==='Normal'?'giro N':'giro INV'}</span></button>`});
+opsEl.innerHTML=html;
+opsEl.addEventListener('click',e=>{const b=e.target.closest('button');if(b)show(+b.dataset.i)});
+function chips(list,c){return list.length?`<span class="chips">${list.map(k=>`<span class="chip ${c}">${k}</span>`).join('')}</span>`:'ninguna'}
+function show(i){
+  const o=OPS[i];
+  opsEl.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.i==i));
+  document.getElementById('flow').setAttribute('d',o.p);
+  document.getElementById('giroTxt').textContent='giro '+o.giro.toLowerCase()+(o.giro==='Normal'?' · chupa A, bota B':' · chupa B, bota A');
+  for(const k in V){
+    const st=o.s[k]||'-', p=document.querySelector('#g'+k+' .vb');
+    const miss=V[k][3];
+    const col=st==='A'?'var(--open)':st==='C'?'var(--closed)':'var(--idle)';
+    p.setAttribute('fill',st==='-'?'var(--paper)':col);
+    p.setAttribute('stroke',miss&&st==='-'?'var(--miss)':col);
+    document.getElementById('t'+k).textContent=k+(st==='-'?'':' '+st);
+  }
+  const ab=Object.keys(o.s).filter(k=>o.s[k]==='A'), ce=Object.keys(o.s).filter(k=>o.s[k]==='C');
+  const [src,dst]=o.n.split(' → ');
+  let note='';
+  if(o.d.includes('all')) note='Esta maniobra no está en la hoja: la deduje del plano. Verifícala en campo antes de usarla.';
+  else if(o.d.length){const r=[];
+    if(o.d.includes('V9')) r.push('la V9 todavía no existe; mientras tanto esa línea queda siempre abierta');
+    if(o.d.includes('V2')) r.push('la hoja no menciona la V2, pero tiene que estar abierta para que entre a la Fosa 1');
+    if(o.d.includes('giro')) r.push('la hoja no dice el giro, pero como chupa por el lado B tiene que ser invertido');
+    note='Ojo: '+r.join('; ')+'.';}
+  stepsEl.innerHTML=`<h3>Maniobra</h3><h2>${o.n}</h2>
+  <ol>
+   <li>Bomba apagada. Pon el giro en <span class="giro">${o.giro.toUpperCase()}</span></li>
+   <li>Abre: ${chips(ab,'a')}</li>
+   <li>Cierra: ${chips(ce,'c')}</li>
+   <li>Revisa nivel en ${src} y espacio en ${dst==='Mula'?'la mula':dst}.</li>
+   <li>Prende la bomba y vigila presión y nivel.</li>
+  </ol>${note?`<p class="note">${note}</p>`:''}`;
+}
+// tabla
+const keys=Object.keys(V);
+let t='<thead><tr><th>Maniobra</th><th>Giro</th>'+keys.map(k=>`<th>${k}</th>`).join('')+'</tr></thead><tbody>';
+OPS.forEach(o=>{const all=o.d.includes('all');
+  t+=`<tr><td>${o.n}${all?' <span class="tag">deducida</span>':''}</td><td class="${o.d.includes('giro')?'ded':''}">${o.giro==='Normal'?'N':'INV'}</td>`+
+  keys.map(k=>{const s=o.s[k]||'–';return `<td class="${s} ${(all||o.d.includes(k))&&s!=='–'?'ded':''}">${s}</td>`}).join('')+'</tr>'});
+document.getElementById('matrix').innerHTML=t+'</tbody>';
+show(0);
+</script>
